@@ -16,21 +16,24 @@
 #define _Sprite8x8_H_
 
 #include "Arduino.h"
+#include <Adafruit_NeoPixel.h>
 
-class Sprite8x8
-{
-private:
-    byte data;
+class Sprite8x8 {
+  private:
+    byte dataPin;
     byte num;
-    byte buffer[80];
+    byte buffer[80];  // 0-63 pixels RGB
+
+    Adafruit_NeoPixel matrix;
 
     void reload();
 
-public:
-    Sprite8x8(byte data);
+  public:
+    Sprite8x8(byte dataPin);
 
     void init();
     void clear();
+    void draw(); // Draw the buffer.
     void setCommand(byte command, byte value);
     void setIntensity(byte intensity);
     void setColumn(byte col, byte value);

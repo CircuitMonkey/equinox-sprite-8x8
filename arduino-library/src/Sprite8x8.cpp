@@ -13,25 +13,22 @@
 
 
 #include "Arduino.h"
-#include <Adafruit_NeoPixel.h>
 #include "Sprite8x8.h"
 
 Sprite8x8::Sprite8x8(byte _data /*, byte _load, byte _clock, byte _num */) {
-    data = _data;
+    dataPin = _data;
 
     // Max in use, from older code.  ???
-    num = 1;
+    num = 1;  // Number of 8x8 marixes.  For now only one.
 
-    //load = _load;
-    //clock = _clock;
-    //num = _num;
     for (int i=0; i<80; i++)
         buffer[i] = 0;
 }
 
 void Sprite8x8::init() {
-
-    pinMode(data,  OUTPUT); // Call AdaFruit NeoPixel init here.
+    matrix = Adafruit_NeoPixel(64, dataPin, NEO_GRB + NEO_KHZ800);
+    matrix.begin();
+    //pinMode(data,  OUTPUT); // Call AdaFruit NeoPixel init here.
 
     //pinMode(clock, OUTPUT);
     //pinMode(load,  OUTPUT);
@@ -46,22 +43,37 @@ void Sprite8x8::init() {
     clear();
 
     setIntensity(0x0f);    // the first 0x0f is the value you can set
+
+    matrix.show();
 }
 
-void Sprite8x8::setIntensity(byte intensity)
-{
+void Sprite8x8::setIntensity(byte intensity) {
+  matrix.setBrightness(intensity);
     //setCommand(max7219_reg_intensity, intensity);
 
     // TODO: NeopPixel Set Brightness
 }
 
-void Sprite8x8::clear()
-{
+void Sprite8x8::clear() {
+  /*
     for (int i=0; i<8; i++)
         setColumnAll(i,0);
+ */
 
-    for (int i=0; i<80; i++)
+    for (int i=0; i<80; i++) {
         buffer[i] = 0;
+    }
+
+    draw(); // Initialize all pixels to 'off'
+}
+
+void Sprite8x8::draw() {
+  for ( int i=0; i<64; i++ ) {
+    uint32_t color = buffer[i]&0xFF<<16;
+    matrix.setPixelColor(i, color);
+  }
+
+  matrix.show();
 }
 
 // What does this do?
@@ -83,8 +95,16 @@ void Sprite8x8::setCommand(byte command, byte value) {
 
 
 void Sprite8x8::setColumn(byte col, byte value) {
-    // AdaFruit NepPixel foo.
 
+    for ( int r=0; r<8; r++ ) {
+      int v;
+      if ( value&(1<<r) ) {
+        v=0xFF;
+      } else {
+        v=0;
+      }
+      setDot(col, r, v);
+    }
     /*
      int n = col / 8;
      int c = col % 8;
@@ -110,8 +130,10 @@ void Sprite8x8::setColumn(byte col, byte value) {
 }
 
 void Sprite8x8::setColumnAll(byte col, byte value) {
-    // TODO: AdaFruit NeoPixel foo.
 
+    for ( int c=1; c<8; c++ ) {
+      setColumn(col+c, value );
+    }
     /*
      digitalWrite(load, LOW);
      for (int i=0; i<num; i++)
@@ -127,7 +149,8 @@ void Sprite8x8::setColumnAll(byte col, byte value) {
 }
 
 void Sprite8x8::setDot(byte col, byte row, byte value) {
-    // TODO AdaFruit Neopixel foo.
+  buffer[col*8+row] = value; // Shift to red
+
     /*
      bitWrite(buffer[col], row, value);
 
@@ -168,14 +191,15 @@ void Sprite8x8::writeSprite(int x, int y, const byte* sprite) {
                 int c = x + i;
                 int r = y + j;
                 if (c>=0 && c<80 && r>=0 && r<8)
-                    setDot(c, r, bitRead(sprite[i+2], j));
+                    setDot(c, r, bitRead(sprite[i+2], j)?0xff:0);
             }
         }
     }
 }
 
 void Sprite8x8::reload() {
-    /*   ADA Fruit buffer -> array foo.
+    draw();
+  /*
      for (int i=0; i<8; i++) {
      int col = i;
      digitalWrite(load, LOW);
@@ -195,8 +219,10 @@ void Sprite8x8::reload() {
 void Sprite8x8::shiftLeft(bool rotate, bool fill_zero) {
     byte old = buffer[0];
     int i;
-    for (i=0; i<80; i++)
+    for (i=0; i<79; i++) {
         buffer[i] = buffer[i+1];
+    }
+    buffer[79] = 0;
     if (rotate) buffer[num*8-1] = old;
     else if (fill_zero) buffer[num*8-1] = 0;
 
